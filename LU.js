@@ -189,3 +189,13 @@ window.addEventListener("visibilitychange", function () {
     }, 3000); // 3秒后恢复为原始标题
   }
 });
+
+// 检测设备是否为手机
+function isMobile() {
+  return /Mobi|Android/i.test(navigator.userAgent);
+}
+// 如果是手机访问，显示提示并禁止访问
+if (isMobile()) {
+  alert("请使用电脑访问");
+  window.location.replace("https://521.fyi");
+}
