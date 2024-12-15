@@ -1,4 +1,4 @@
-MorphSVGPlugin.convertToPath('polygon');
+// 使用JS基本方法替代部分GSAP付费控件
 var xmlns = "http://www.w3.org/2000/svg",
   xlinkns = "http://www.w3.org/1999/xlink",
   select = function (s) {
@@ -15,197 +15,177 @@ var xmlns = "http://www.w3.org/2000/svg",
   showParticle = true,
   particleColorArray = ['#E8F6F8', '#ACE8F8', '#F6FBFE', '#A2CBDC', '#B74551', '#5DBA72', '#910B28', '#910B28', '#446D39'],
   particleTypeArray = ['#star', '#circ', '#cross', '#heart'],
-  // particleTypeArray = ['#star'],
   particlePool = [],
   particleCount = 0,
-  numParticles = 201
+  numParticles = 201;
 
+document.querySelector('svg').style.visibility = 'visible';
 
-gsap.set('svg', {
-  visibility: 'visible'
-})
+// 创建闪烁效果
+const flicker = (p) => {
+  p.style.animation = 'flicker 0.07s infinite';
+};
 
-gsap.set(sparkle, {
-  transformOrigin: '50% 50%',
-  y: -100
-})
-
-let getSVGPoints = (path) => {
-
-  let arr = []
-  var rawPath = MotionPathPlugin.getRawPath(path)[0];
-  rawPath.forEach((el, value) => {
-    let obj = {}
-    obj.x = rawPath[value * 2]
-    obj.y = rawPath[(value * 2) + 1]
-    if (value % 2) {
-      arr.push(obj)
-    }
-
-  })
-
-  return arr;
-}
-let treePath = getSVGPoints('.treePath')
-
-var treeBottomPath = getSVGPoints('.treeBottomPath')
-
-
-var mainTl = gsap.timeline({ delay: 0, repeat: 0 }), starTl;
-
-
-
-
-function flicker(p) {
-
-  //console.log("flivker")
-  gsap.killTweensOf(p, { opacity: true });
-  gsap.fromTo(p, {
-    opacity: 1
-  }, {
-    duration: 0.07,
-    opacity: Math.random(),
-    repeat: -1
-  })
-}
-
+// 初始化粒子池
 function createParticles() {
-
-
-  var i = numParticles, p, particleTl, step = numParticles / treePath.length, pos;
-  while (--i > -1) {
-
-    p = select(particleTypeArray[i % particleTypeArray.length]).cloneNode(true);
+  for (let i = 0; i < numParticles; i++) {
+    let p = select(particleTypeArray[i % particleTypeArray.length]).cloneNode(true);
     mainSVG.appendChild(p);
     p.setAttribute('fill', particleColorArray[i % particleColorArray.length]);
     p.setAttribute('class', "particle");
     particlePool.push(p);
-    //hide them initially
-    gsap.set(p, {
-      x: -100,
-      y: -100,
-      transformOrigin: '50% 50%'
-    })
-
-
-
+    // 初始化隐藏粒子
+    p.style.transformOrigin = '50% 50%';
+    p.style.position = 'absolute';
+    p.style.opacity = 0;
   }
-
 }
 
-var getScale = gsap.utils.random(0.5, 3, 0.001, true);
+// 让粒子从路径上生成并持续飘动
+function playParticle(point) {
+  let p = particlePool[particleCount];
+  let scale = Math.random() * 2.5 + 0.5;
+  let offsetX = (Math.random() - 0.5) * window.innerWidth; // 粒子随机偏移以达到全屏效果
+  let offsetY = (Math.random() - 0.5) * window.innerHeight; // 粒子随机偏移以达到全屏效果
 
-function playParticle(p) {
-  if (!showParticle) { return };
-  var p = particlePool[particleCount]
-  gsap.set(p, {
-    x: gsap.getProperty('.pContainer', 'x'),
-    y: gsap.getProperty('.pContainer', 'y'),
-    scale: getScale()
-  }
-  );
-  var tl = gsap.timeline();
-  tl.to(p, {
-    duration: gsap.utils.random(0.61, 6),
-    physics2D: {
-      velocity: gsap.utils.random(-23, 23),
-      angle: gsap.utils.random(-180, 180),
-      gravity: gsap.utils.random(-6, 50)
-    },
-    scale: 0,
-    rotation: gsap.utils.random(-123, 360),
-    ease: 'power1',
-    onStart: flicker,
-    onStartParams: [p],
+  p.style.transform = `translate(${point.x + offsetX}px, ${point.y + offsetY}px) scale(${scale})`;
 
-    onRepeat: (p) => {
-      gsap.set(p, {
-        scale: getScale()
-      })
-    },
-    onRepeatParams: [p]
+  let duration = Math.random() * 6 + 4; // 控制飘动粒子的动画时长
 
+  let keyframes = [
+    { opacity: 1, transform: `translate(${point.x + offsetX}px, ${point.y + offsetY}px) scale(${scale})` },
+    { opacity: 0, transform: `translate(${point.x + offsetX}px, ${point.y + offsetY}px) scale(0)` }
+  ];
+
+  p.animate(keyframes, {
+    duration: duration * 1000,
+    easing: 'ease-out',
+    iterations: 1
   });
 
-
-
   particleCount++;
-
-  particleCount = (particleCount >= numParticles) ? 0 : particleCount
-
+  if (particleCount >= numParticles) {
+    particleCount = 0;
+  }
 }
 
+// 获取SVG路径的所有点
+function getSVGPoints(path) {
+  let arr = [];
+  let pathElement = select(path);
+  let totalLength = pathElement.getTotalLength();
+
+  for (let i = 0; i <= totalLength; i += totalLength / 150) { // 更精细的粒子步进以使粒子速度加快
+    let point = pathElement.getPointAtLength(i);
+    arr.push({ x: point.x, y: point.y });
+  }
+
+  return arr;
+}
+
+let treePath = getSVGPoints('.treePath');
+let treeBottomPath = getSVGPoints('.treeBottomPath');
+
+// 沿路径滑动元素
+function animatePath(el, pathArray, isParticle = false, onComplete = null) {
+  let stepDuration = 6; // 调整此处滑动粒子的速度，值越小速度越快，默认值为6
+  let totalSteps = pathArray.length;
+  let currentStep = 0;
+
+  function step() {
+    if (currentStep < totalSteps) {
+      let point = pathArray[currentStep];
+      el.style.transform = `translate(${point.x}px, ${point.y}px)`;
+      if (isParticle) playParticle(point); // 同时触发粒子的飘动效果
+      currentStep++;
+      setTimeout(step, stepDuration * 1425 / totalSteps); // 控制粒子跟随路径的速度
+    } else {
+      // 路径完成后触发回调函数
+      if (onComplete) onComplete();
+    }
+  }
+
+  step();
+}
+
+// 绘制路径上的星星和粒子效果
 function drawStar() {
+  const treePathElement = select('.treePath');
+  const firstPoint = treePathElement.getPointAtLength(0);
 
-  starTl = gsap.timeline({ onUpdate: playParticle })
-  starTl.to('.pContainer, .sparkle', {
-    duration: 6,
-    motionPath: {
-      path: '.treePath',
-      autoRotate: false
-    },
-    ease: 'linear'
-  })
-    .to('.pContainer, .sparkle', {
-      duration: 1,
-      onStart: function () { showParticle = false },
-      x: treeBottomPath[0].x,
-      y: treeBottomPath[0].y
-    })
-    .to('.pContainer, .sparkle', {
-      duration: 2,
-      onStart: function () { showParticle = true },
-      motionPath: {
-        path: '.treeBottomPath',
-        autoRotate: false
-      },
-      ease: 'linear'
-    }, '-=0')
-    .from('.treeBottomMask', {
-      duration: 2,
-      drawSVG: '0% 0%',
-      stroke: '#FFF',
-      ease: 'linear'
-    }, '-=2')
+  // 初始化元素位置
+  pContainer.style.transform = `translate(${firstPoint.x}px, ${firstPoint.y}px)`;
+  sparkle.style.transform = `translate(${firstPoint.x}px, ${firstPoint.y}px)`;
+  pContainer.style.opacity = 1;
+  sparkle.style.opacity = 1;
 
+  // 沿着树的路径动画
+  animatePath(pContainer, treePath, true, () => {
+    animatePath(pContainer, treeBottomPath, true, () => {
+      // 完成所有路径后让滑动的粒子消失
+      pContainer.style.opacity = 0;
+      sparkle.style.opacity = 0;
+    });
+  });
 
-
-
+  animatePath(sparkle, treePath, false, () => {
+    animatePath(sparkle, treeBottomPath, false, () => {
+      // 完成所有路径后让滑动的粒子消失
+      sparkle.style.opacity = 0;
+    });
+  });
 }
-
 
 createParticles();
+
+// 持续生成飘动的粒子
+setInterval(() => {
+  if (showParticle) {
+    for (let i = 0; i < 3; i++) { // 每次生成三个粒子
+      const randomPoint = {
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight
+      };
+      playParticle(randomPoint);
+    }
+  }
+}, 300); // 每300毫秒生成一组粒子 // 每300毫秒生成一个粒子
+
 drawStar();
 
+// 绘制路径的描边动画
+function pathDrawEffect(selector) {
+  const path = select(selector);
+  const length = path.getTotalLength();
+  path.style.strokeDasharray = length;
+  path.style.strokeDashoffset = length;
 
-mainTl.from(['.treePathMask', '.treePotMask'], {
-  duration: 6,
-  drawSVG: '0% 0%',
-  stroke: '#FFF',
-  stagger: {
-    each: 6
-  },
-  duration: gsap.utils.wrap([6, 1, 2]),
-  ease: 'linear'
-})
-  .from('.treeStar', {
-    duration: 3,
+  let startTime = performance.now();
 
-    scaleY: 0,
-    scaleX: 0.15,
-    transformOrigin: '50% 50%',
-    ease: 'elastic(1,0.5)'
-  }, '-=4')
+  function draw() {
+    let elapsed = (performance.now() - startTime) / 9000; // 控制路径描边动画的时间
+    path.style.strokeDashoffset = length * (1 - elapsed);
+    if (elapsed < 1) {
+      requestAnimationFrame(draw);
+    }
+  }
 
-  .to('.sparkle', {
-    duration: 3,
-    opacity: 0,
-    ease: "rough({strength: 2, points: 100, template: linear, taper: both, randomize: true, clamp: false})"
-  }, '-=0')
-  .to('.treeStarOutline', {
-    duration: 1,
-    opacity: 1,
-    ease: "rough({strength: 2, points: 16, template: linear, taper: none, randomize: true, clamp: false})"
-  }, '+=1')
-mainT1.add(starT1, 0)
-gsap.globalTimeline.timeScale(1.5);
+  draw();
+}
+
+pathDrawEffect('.treePathMask');
+pathDrawEffect('.treePotMask');
+pathDrawEffect('.treeStarOutline');
+
+// 判断用户是否离开标签页
+let originalTitle = document.title;
+window.addEventListener("visibilitychange", function () {
+  if (document.hidden) {
+    document.title = "你要离开了嘛？o>_<o";
+  } else {
+    document.title = "欢迎回来！圣诞快乐吖~";
+    setTimeout(() => {
+      document.title = originalTitle;
+    }, 3000); // 3秒后恢复为原始标题
+  }
+});
